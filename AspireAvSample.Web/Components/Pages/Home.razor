@@ -1,0 +1,151 @@
+﻿@page "/"
+@using System.Linq
+@using System.Net.Http.Headers
+@inject HttpClient Http
+@inject ILogger<Home> Logger
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<PageTitle>Home</PageTitle>
+
+<h1>Hello, world!</h1>
+
+<p>Let's upload some files using the <a href="https://learn.microsoft.com/aspnet/core/blazor/file-uploads?view=aspnetcore-8.0#upload-files-to-a-server-with-server-side-rendering">File Upload sample from Learn.microsoft.com</a></p>
+
+@* <form method="post" action="/upload" enctype="multipart/form-data">
+
+  <label for="file">Select a file to upload</label> 
+  <input type="file" name="file" />
+
+  <br/>
+
+  <button type="submit">Submit</button>
+
+</form> *@
+
+<InputFile OnChange="OnInputFileChange" />
+
+@if (files.Count > 0)
+{
+  <div class="card">
+    <div class="card-body">
+      <ul>
+        @foreach (var file in files)
+        {
+          <li>
+            File: @file.Name
+            <br>
+            @if (FileUpload(uploadResults, file.Name, Logger,
+           out var result))
+            {
+              <span>
+                Stored File Name: @result.StoredFileName
+              </span>
+            }
+            else
+            {
+              <span>
+                There was an error uploading the file
+                (Error: @result.ErrorCode - @result.ErrorMessage).
+              </span>
+            }
+          </li>
+        }
+      </ul>
+    </div>
+  </div>
+}
+
+@code {
+  private List<File> files = new();
+  private List<UploadResult> uploadResults = new();
+  private int maxAllowedFiles = 3;
+  private bool shouldRender;
+
+  protected override bool ShouldRender() => shouldRender;
+
+  private async Task OnInputFileChange(InputFileChangeEventArgs e)
+  {
+    shouldRender = false;
+    long maxFileSize = 1024 * 1024 * 15;
+    var upload = false;
+
+    using var content = new MultipartFormDataContent();
+
+    foreach (var file in e.GetMultipleFiles(maxAllowedFiles))
+    {
+      if (uploadResults.SingleOrDefault(
+          f => f.FileName == file.Name) is null)
+      {
+        try
+        {
+          files.Add(new() { Name = file.Name });
+
+          var fileContent =
+              new StreamContent(file.OpenReadStream(maxFileSize));
+
+          fileContent.Headers.ContentType =
+              new MediaTypeHeaderValue(file.ContentType);
+
+          content.Add(
+              content: fileContent,
+              name: "\"files\"",
+              fileName: file.Name);
+
+          upload = true;
+        }
+        catch (Exception ex)
+        {
+          Logger.LogInformation(
+              "{FileName} not uploaded (Err: 6): {Message}",
+              file.Name, ex.Message);
+
+          uploadResults.Add(
+              new()
+                {
+                  FileName = file.Name,
+                  ErrorCode = 6,
+                  Uploaded = false
+                });
+        }
+      }
+    }
+
+    if (upload)
+    {
+      var response = await Http.PostAsync($"{NavigationManager.BaseUri}upload", content);
+
+      var newUploadResults = await response.Content
+          .ReadFromJsonAsync<IList<UploadResult>>();
+
+      if (newUploadResults is not null)
+      {
+        uploadResults = uploadResults.Concat(newUploadResults).ToList();
+      }
+    }
+
+    shouldRender = true;
+  }
+
+  private static bool FileUpload(IList<UploadResult> uploadResults,
+      string? fileName, ILogger<Home> logger, out UploadResult result)
+  {
+    result = uploadResults.SingleOrDefault(f => f.FileName == fileName) ?? new();
+
+    if (!result.Uploaded && string.IsNullOrEmpty(result.ErrorMessage))
+    {
+      logger.LogInformation("{FileName} not uploaded (Err: 5)", fileName);
+      result.ErrorCode = 5;
+    } else if (!result.Uploaded)
+    {
+      logger.LogInformation(result.ErrorMessage);
+    }
+
+    return result.Uploaded;
+  }
+
+  private class File
+  {
+    public string? Name { get; set; }
+  }
+}
