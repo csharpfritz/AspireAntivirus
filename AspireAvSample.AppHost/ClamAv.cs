@@ -26,16 +26,12 @@ public static class ClamAvResourceBuilderExtensions
 	{
 		var resource = new ClamAvResource(name);
 
-		var outResource = builder.AddResource(resource)
+		return builder.AddResource(resource)
 									.WithImage("clamav/clamav")
 									.WithImageRegistry("docker.io")
 									.WithImageTag("latest")
-									.WithEnvironment("CLAMAV_NO_FRESHCLAMD", "true");
-
-			outResource = (httpPort != null) ? outResource.WithHttpEndpoint(port: httpPort, targetPort: 3310, name: "http")
-					: outResource.WithHttpEndpoint(targetPort: 3310, name: "http");
-
-		return outResource;
+									.WithEnvironment("CLAMAV_NO_FRESHCLAMD", "true")
+									.WithHttpEndpoint(port: httpPort, targetPort: 3310, name: "http");
 
 	}
 }
