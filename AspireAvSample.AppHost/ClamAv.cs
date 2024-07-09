@@ -1,20 +1,16 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿namespace AspireAvSample.AppHost;
 
-namespace AspireAvSample.AppHost;
-
-
-public class ClamAvResource(string name) : ContainerResource(name), IResourceWithServiceDiscovery
+public class ClamAvResource(string name) : ContainerResource(name), IResourceWithConnectionString
 {
 
-	private EndpointReference? _httpReference;
+	internal const string PrimaryEndpointName = "tcp";
+	private EndpointReference? _primaryEndpoint;
 
-	public EndpointReference HttpEndpoint =>
-			_httpReference ??= new(this, "http");
-
+	public EndpointReference PrimaryEndpoint => _primaryEndpoint ??= new(this, PrimaryEndpointName);
+	public ReferenceExpression ConnectionStringExpression =>
+		ReferenceExpression.Create(
+			$"tcp://{PrimaryEndpoint.Property(EndpointProperty.Host)}:{PrimaryEndpoint.Property(EndpointProperty.Port)}"
+		);
 }
 
 public static class ClamAvResourceBuilderExtensions
@@ -22,7 +18,7 @@ public static class ClamAvResourceBuilderExtensions
 	public static IResourceBuilder<ClamAvResource> AddClamAv(
 			this IDistributedApplicationBuilder builder,
 			string name,
-			int? httpPort = null)
+			int? port = null)
 	{
 		var resource = new ClamAvResource(name);
 
@@ -31,7 +27,12 @@ public static class ClamAvResourceBuilderExtensions
 									.WithImageRegistry("docker.io")
 									.WithImageTag("latest")
 									.WithEnvironment("CLAMAV_NO_FRESHCLAMD", "true")
-									.WithHttpEndpoint(port: httpPort, targetPort: 3310, name: "http");
-
+									.WithEndpoint(port: port, name: ClamAvResource.PrimaryEndpointName, targetPort: 3310);
 	}
+
+    public static IResourceBuilder<ClamAvResource> WithDataVolume(this IResourceBuilder<ClamAvResource> builder, string name, bool isReadOnly = false)
+        => builder.WithVolume(name, "/var/lib/clamav", isReadOnly);
+
+    public static IResourceBuilder<ClamAvResource> WithDataBindMount(this IResourceBuilder<ClamAvResource> builder, string source, bool isReadOnly = false)
+        => builder.WithBindMount(source, "/var/lib/clamav", isReadOnly);
 }
