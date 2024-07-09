@@ -27,7 +27,7 @@ We can then scan uploaded content as shown in Program_Services.cs:
 
 ```csharp
 
-var clamConfig = app.Configuration["services:antivirus:http:0"];
+var clamConfig = app.Configuration.GetConnectionString("antivirus");
 if (string.IsNullOrEmpty(clamConfig)) throw new Exception("Missing antivirus configuration");
 ClamUri = new Uri(clamConfig);
 
