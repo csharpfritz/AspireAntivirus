@@ -1,6 +1,6 @@
 # AspireAntivirus
 
-A proof of concept showing how to add ClamAV antivirus detection to a .NET Aspire application.
+A proof of concept showing how to add ClamAV antivirus detection to a .NET Aspire application.  Blog post about this idea at: https://jeffreyfritz.com/2024/07/adding-antivirus-to-net-aspire-systems/
 
 ## Purpose
 
